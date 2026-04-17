@@ -1,0 +1,55 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model TeamRequest {
+  id         String   @id @default(cuid())
+  firstName  String
+  lastName   String
+  email      String   @unique
+  forwards   String[]
+  defensemen String[]
+  eastTeam   String
+  westTeam   String
+  status     String   @default("pending") // pending | approved | rejected
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model PlayerStats {
+  id       String @id @default(cuid())
+  nhlId    String @unique
+  name     String
+  position String
+  teamAbbr String
+
+  goals   Int @default(0)
+  assists Int @default(0)
+
+  updatedAt DateTime @updatedAt
+}
+
+model TeamStats {
+  id         String @id @default(cuid())
+  nhlAbbr    String @unique
+  name       String
+  conference String
+
+  wins       Int     @default(0)
+  seriesWins Int     @default(0)
+  eliminated Boolean @default(false)
+
+  updatedAt DateTime @updatedAt
+}
+
+model Settings {
+  id          String    @id @default(cuid())
+  picksLocked Boolean   @default(false)
+  lockDate    DateTime?
+  updatedAt   DateTime  @updatedAt
+}
