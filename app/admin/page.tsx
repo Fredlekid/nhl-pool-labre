@@ -311,7 +311,12 @@ function RequestCard({
               Re-approve
             </button>
           )}
-          <button onClick={() => onDelete(r.id)} className="text-red-400 hover:text-white hover:bg-red-500 border border-red-200 hover:border-red-500 text-xs px-2 py-1 rounded-md transition-colors">
+          <button
+            onClick={() => {
+              if (confirm(`Are you sure you want to delete ${r.firstName} ${r.lastName}?`)) onDelete(r.id);
+            }}
+            className="text-red-400 hover:text-white hover:bg-red-500 border border-red-200 hover:border-red-500 text-xs px-2 py-1 rounded-md transition-colors"
+          >
             Delete
           </button>
           <button onClick={() => setOpen((o) => !o)} className="text-slate-400 text-xs ml-1 hover:text-slate-600">
