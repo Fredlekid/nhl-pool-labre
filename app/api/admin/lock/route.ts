@@ -32,5 +32,5 @@ export async function POST(request: NextRequest) {
 export async function GET() {
   if (!(await isAdmin())) return Response.json({ error: "Unauthorized" }, { status: 401 });
   const settings = await prisma.settings.findFirst();
-  return Response.json(settings);
+  return Response.json(settings ?? { picksLocked: false, lockDate: null });
 }

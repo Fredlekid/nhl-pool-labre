@@ -89,13 +89,12 @@ export default function AdminPage() {
   }
 
   async function toggleLock() {
-    if (!settings) return;
     setSaving(true);
     setMsg("");
     const res = await fetch("/api/admin/lock", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ locked: !settings.picksLocked }),
+      body: JSON.stringify({ locked: !(settings?.picksLocked ?? false) }),
     });
     const data = await res.json();
     setSaving(false);
