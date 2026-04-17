@@ -16,7 +16,7 @@ export default function Nav() {
   }, [pathname]);
 
   useEffect(() => {
-    fetch("/api/admin/lock")
+    fetch("/api/settings")
       .then((r) => r.json())
       .then((d) => setLocked(d?.picksLocked ?? false))
       .catch(() => {});
