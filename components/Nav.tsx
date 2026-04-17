@@ -9,10 +9,18 @@ export default function Nav() {
   const pathname = usePathname();
   const [isAdmin, setIsAdmin] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [locked, setLocked] = useState(false);
 
   useEffect(() => {
     setIsAdmin(document.cookie.includes("nhl_admin_session"));
   }, [pathname]);
+
+  useEffect(() => {
+    fetch("/api/admin/lock")
+      .then((r) => r.json())
+      .then((d) => setLocked(d?.picksLocked ?? false))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     setMenuOpen(false);
@@ -33,12 +41,14 @@ export default function Nav() {
       >
         Leaderboard
       </Link>
-      <Link
-        href="/join"
-        className="text-sm font-semibold bg-blue-700 hover:bg-blue-800 text-white px-4 py-2 rounded-lg transition-colors"
-      >
-        Join the Pool
-      </Link>
+      {!locked && (
+        <Link
+          href="/join"
+          className="text-sm font-semibold bg-blue-700 hover:bg-blue-800 text-white px-4 py-2 rounded-lg transition-colors"
+        >
+          Join the Pool
+        </Link>
+      )}
       {isAdmin ? (
         <>
           <Link
