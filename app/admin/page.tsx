@@ -32,6 +32,7 @@ interface Player {
 export default function AdminPage() {
   const router = useRouter();
   const [requests, setRequests] = useState<TeamRequest[]>([]);
+  const [deletedRequests, setDeletedRequests] = useState<TeamRequest[]>([]);
   const [playerMap, setPlayerMap] = useState<Map<string, Player>>(new Map());
   const [settings, setSettings] = useState<Settings | null>(null);
   const [lockDate, setLockDate] = useState("");
@@ -51,7 +52,9 @@ export default function AdminPage() {
 
     if (reqRes.status === 401) { router.push("/login"); return; }
 
-    setRequests(await reqRes.json());
+    const reqData = await reqRes.json();
+    setRequests(reqData.requests ?? []);
+    setDeletedRequests(reqData.deleted ?? []);
 
     const players: Player[] = await playersRes.json();
     setPlayerMap(new Map(players.map((p) => [p.nhlId, p])));
@@ -84,7 +87,22 @@ export default function AdminPage() {
       body: JSON.stringify({ id }),
     });
     if (res.ok) {
+      const r = requests.find((r) => r.id === id)!;
       setRequests((prev) => prev.filter((r) => r.id !== id));
+      setDeletedRequests((prev) => [r, ...prev]);
+    }
+  }
+
+  async function restoreRequest(id: string) {
+    const res = await fetch("/api/admin/requests", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, restore: true }),
+    });
+    if (res.ok) {
+      const r = deletedRequests.find((r) => r.id === id)!;
+      setDeletedRequests((prev) => prev.filter((r) => r.id !== id));
+      setRequests((prev) => [r, ...prev]);
     }
   }
 
@@ -156,15 +174,13 @@ export default function AdminPage() {
       {/* Requests tab */}
       {tab === "requests" && (
         <div className="space-y-4">
-          {requests.length === 0 && (
+          {requests.length === 0 && deletedRequests.length === 0 && (
             <div className="text-center py-12 text-slate-400 bg-white rounded-2xl border border-slate-200">No requests yet.</div>
           )}
 
           {pending.length > 0 && (
             <section>
-              <h2 className="text-xs font-semibold uppercase text-amber-600 tracking-wide mb-2">
-                Pending ({pending.length})
-              </h2>
+              <h2 className="text-xs font-semibold uppercase text-amber-600 tracking-wide mb-2">Pending ({pending.length})</h2>
               <div className="space-y-2">
                 {pending.map((r) => <RequestCard key={r.id} request={r} playerMap={playerMap} onSetStatus={setStatus} onDelete={deleteRequest} />)}
               </div>
@@ -173,9 +189,7 @@ export default function AdminPage() {
 
           {approved.length > 0 && (
             <section>
-              <h2 className="text-xs font-semibold uppercase text-green-600 tracking-wide mb-2">
-                Approved ({approved.length})
-              </h2>
+              <h2 className="text-xs font-semibold uppercase text-green-600 tracking-wide mb-2">Approved ({approved.length})</h2>
               <div className="space-y-2">
                 {approved.map((r) => <RequestCard key={r.id} request={r} playerMap={playerMap} onSetStatus={setStatus} onDelete={deleteRequest} />)}
               </div>
@@ -184,11 +198,31 @@ export default function AdminPage() {
 
           {rejected.length > 0 && (
             <section>
-              <h2 className="text-xs font-semibold uppercase text-red-500 tracking-wide mb-2">
-                Rejected ({rejected.length})
-              </h2>
+              <h2 className="text-xs font-semibold uppercase text-red-500 tracking-wide mb-2">Rejected ({rejected.length})</h2>
               <div className="space-y-2">
                 {rejected.map((r) => <RequestCard key={r.id} request={r} playerMap={playerMap} onSetStatus={setStatus} onDelete={deleteRequest} />)}
+              </div>
+            </section>
+          )}
+
+          {deletedRequests.length > 0 && (
+            <section>
+              <h2 className="text-xs font-semibold uppercase text-slate-400 tracking-wide mb-2">Deleted ({deletedRequests.length})</h2>
+              <div className="space-y-2">
+                {deletedRequests.map((r) => (
+                  <div key={r.id} className="bg-slate-50 rounded-xl border border-slate-200 px-4 py-3 flex items-center justify-between">
+                    <div>
+                      <span className="font-semibold text-slate-500 line-through">{r.firstName} {r.lastName}</span>
+                      <span className="text-slate-400 text-sm ml-2">{r.email}</span>
+                    </div>
+                    <button
+                      onClick={() => restoreRequest(r.id)}
+                      className="text-blue-600 hover:text-white hover:bg-blue-600 border border-blue-200 hover:border-blue-600 text-xs px-3 py-1 rounded-md transition-colors"
+                    >
+                      Restore
+                    </button>
+                  </div>
+                ))}
               </div>
             </section>
           )}
@@ -198,7 +232,6 @@ export default function AdminPage() {
       {/* Settings tab */}
       {tab === "settings" && (
         <div className="space-y-4">
-          {/* Lock control */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
             <h2 className="font-semibold text-slate-800">Pick Submissions</h2>
             <div className="flex items-center justify-between">
@@ -235,10 +268,9 @@ export default function AdminPage() {
             {msg && <p className={`text-sm ${msg.startsWith("✓") ? "text-green-600" : "text-red-500"}`}>{msg}</p>}
           </div>
 
-          {/* Stats refresh */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
             <h2 className="font-semibold text-slate-800">NHL Stats</h2>
-            <p className="text-sm text-slate-500">Refresh player goals/assists and team wins from the NHL API. Also auto-runs hourly.</p>
+            <p className="text-sm text-slate-500">Refresh player goals/assists and team wins from the NHL API. Also auto-runs daily.</p>
             <button
               onClick={refreshStats}
               disabled={refreshing}
@@ -334,7 +366,6 @@ function RequestCard({
               West: <strong className="text-slate-800">{r.westTeam}</strong>
             </p>
           </div>
-
           <div>
             <p className="text-slate-400 uppercase font-semibold mb-1">Forwards ({r.forwards.length})</p>
             <div className="flex flex-wrap gap-1">
@@ -345,7 +376,6 @@ function RequestCard({
               ))}
             </div>
           </div>
-
           <div>
             <p className="text-slate-400 uppercase font-semibold mb-1">Defensemen ({r.defensemen.length})</p>
             <div className="flex flex-wrap gap-1">
@@ -356,7 +386,6 @@ function RequestCard({
               ))}
             </div>
           </div>
-
           <p className="text-slate-400">Submitted: {new Date(r.createdAt).toLocaleString()}</p>
         </div>
       )}

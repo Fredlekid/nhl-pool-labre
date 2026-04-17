@@ -17,7 +17,7 @@ export interface TeamScore {
 
 export async function computeLeaderboard(): Promise<TeamScore[]> {
   const [requests, playerStats, teamStats] = await Promise.all([
-    prisma.teamRequest.findMany({ where: { status: "approved" } }),
+    prisma.teamRequest.findMany({ where: { status: "approved", deleted: false } }),
     prisma.playerStats.findMany(),
     prisma.teamStats.findMany(),
   ]);

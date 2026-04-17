@@ -17,6 +17,7 @@ model TeamRequest {
   eastTeam   String
   westTeam   String
   status     String   @default("pending") // pending | approved | rejected
+  deleted    Boolean  @default(false)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 }

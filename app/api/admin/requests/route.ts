@@ -7,18 +7,28 @@ export async function GET() {
 
   const requests = await prisma.teamRequest.findMany({
     orderBy: { createdAt: "desc" },
+    where: { deleted: false },
   });
 
-  return Response.json(requests);
+  const deleted = await prisma.teamRequest.findMany({
+    orderBy: { createdAt: "desc" },
+    where: { deleted: true },
+  });
+
+  return Response.json({ requests, deleted });
 }
 
 export async function DELETE(request: NextRequest) {
   if (!(await isAdmin())) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { id } = await request.json();
-  await prisma.teamRequest.delete({ where: { id } });
+  const { id, restore } = await request.json();
 
-  return Response.json({ ok: true });
+  const updated = await prisma.teamRequest.update({
+    where: { id },
+    data: { deleted: restore ? false : true },
+  });
+
+  return Response.json(updated);
 }
 
 export async function PATCH(request: NextRequest) {
