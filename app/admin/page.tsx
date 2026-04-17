@@ -77,6 +77,17 @@ export default function AdminPage() {
     }
   }
 
+  async function deleteRequest(id: string) {
+    const res = await fetch("/api/admin/requests", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+    if (res.ok) {
+      setRequests((prev) => prev.filter((r) => r.id !== id));
+    }
+  }
+
   async function toggleLock() {
     if (!settings) return;
     setSaving(true);
@@ -156,7 +167,7 @@ export default function AdminPage() {
                 Pending ({pending.length})
               </h2>
               <div className="space-y-2">
-                {pending.map((r) => <RequestCard key={r.id} request={r} playerMap={playerMap} onSetStatus={setStatus} />)}
+                {pending.map((r) => <RequestCard key={r.id} request={r} playerMap={playerMap} onSetStatus={setStatus} onDelete={deleteRequest} />)}
               </div>
             </section>
           )}
@@ -167,7 +178,7 @@ export default function AdminPage() {
                 Approved ({approved.length})
               </h2>
               <div className="space-y-2">
-                {approved.map((r) => <RequestCard key={r.id} request={r} playerMap={playerMap} onSetStatus={setStatus} />)}
+                {approved.map((r) => <RequestCard key={r.id} request={r} playerMap={playerMap} onSetStatus={setStatus} onDelete={deleteRequest} />)}
               </div>
             </section>
           )}
@@ -178,7 +189,7 @@ export default function AdminPage() {
                 Rejected ({rejected.length})
               </h2>
               <div className="space-y-2">
-                {rejected.map((r) => <RequestCard key={r.id} request={r} playerMap={playerMap} onSetStatus={setStatus} />)}
+                {rejected.map((r) => <RequestCard key={r.id} request={r} playerMap={playerMap} onSetStatus={setStatus} onDelete={deleteRequest} />)}
               </div>
             </section>
           )}
@@ -249,11 +260,12 @@ export default function AdminPage() {
 }
 
 function RequestCard({
-  request: r, playerMap, onSetStatus,
+  request: r, playerMap, onSetStatus, onDelete,
 }: {
   request: TeamRequest;
   playerMap: Map<string, { name: string; teamAbbr: string }>;
   onSetStatus: (id: string, status: string) => void;
+  onDelete: (id: string) => void;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -299,6 +311,9 @@ function RequestCard({
               Re-approve
             </button>
           )}
+          <button onClick={() => onDelete(r.id)} className="text-slate-300 hover:text-red-500 text-xs ml-1 transition-colors" title="Delete">
+            🗑
+          </button>
           <button onClick={() => setOpen((o) => !o)} className="text-slate-400 text-xs ml-1 hover:text-slate-600">
             {open ? "▲" : "▼"}
           </button>

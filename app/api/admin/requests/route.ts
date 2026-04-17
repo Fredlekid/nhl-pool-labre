@@ -12,6 +12,15 @@ export async function GET() {
   return Response.json(requests);
 }
 
+export async function DELETE(request: NextRequest) {
+  if (!(await isAdmin())) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { id } = await request.json();
+  await prisma.teamRequest.delete({ where: { id } });
+
+  return Response.json({ ok: true });
+}
+
 export async function PATCH(request: NextRequest) {
   if (!(await isAdmin())) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
