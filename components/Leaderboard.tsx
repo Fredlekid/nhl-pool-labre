@@ -80,6 +80,8 @@ export default function Leaderboard() {
   }, []);
 
   useEffect(() => {
+    // Trigger a stats refresh in the background (rate-limited server-side to 5 min)
+    fetch("/api/stats/refresh").catch(() => {});
     fetchData();
     const interval = setInterval(fetchData, 5 * 60 * 1000);
     return () => clearInterval(interval);

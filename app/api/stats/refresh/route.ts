@@ -11,9 +11,18 @@ export async function POST() {
 
 export async function GET(request: Request) {
   const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Cron job with secret — always run
+  if (authHeader === `Bearer ${process.env.CRON_SECRET}`) {
+    return runRefresh();
   }
+
+  // Public auto-refresh — only if stats are older than 5 minutes
+  const latest = await prisma.playerStats.findFirst({ orderBy: { updatedAt: "desc" } });
+  if (latest && Date.now() - latest.updatedAt.getTime() < 5 * 60 * 1000) {
+    return Response.json({ skipped: true });
+  }
+
   return runRefresh();
 }
 
@@ -50,7 +59,7 @@ async function runRefresh() {
         await prisma.playerStats.upsert({
           where: { nhlId: p.nhlId },
           create: { id: p.nhlId, nhlId: p.nhlId, name: p.name, position: p.position, teamAbbr: p.teamAbbr, goals: p.goals, assists: p.assists },
-          update: { goals: p.goals, assists: p.assists, name: p.name, teamAbbr: p.teamAbbr },
+          update: { goals: p.goals, assists: p.assists, name: p.name, ...(p.teamAbbr ? { teamAbbr: p.teamAbbr } : {}) },
         });
       }
     } else {
