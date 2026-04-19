@@ -37,8 +37,12 @@ interface Team {
 }
 
 function TeamLogo({ abbr, size = 28 }: { abbr: string; size?: number }) {
+  const [failed, setFailed] = useState(false);
   const pad = Math.round(size * 0.2);
   const outer = size + pad * 2;
+
+  if (failed || !abbr) return null;
+
   return (
     <span
       className="inline-flex items-center justify-center rounded-full bg-slate-800 shrink-0"
@@ -50,7 +54,7 @@ function TeamLogo({ abbr, size = 28 }: { abbr: string; size?: number }) {
         width={size}
         height={size}
         className="object-contain"
-        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+        onError={() => setFailed(true)}
       />
     </span>
   );
