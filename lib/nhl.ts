@@ -115,29 +115,48 @@ export async function getPlayoffTeamStats(): Promise<PlayoffTeamResult[]> {
 }
 
 export async function getPlayoffPlayerStats(): Promise<PlayerStatsResult[]> {
+  // Try aggregated stats API first
   try {
     const url =
       `${NHL_STATS_API}/skater/summary?isAggregate=true&isGame=false` +
       `&sort=[{"property":"points","direction":"DESC"}]` +
       `&start=0&limit=1000` +
-      `&factCayenneExp=gamesPlayed>=1` +
       `&cayenneExp=gameTypeId=3 and seasonId<=${SEASON} and seasonId>=${SEASON}`;
 
     const data = await fetchJSON(url);
     const rows = data.data || [];
-    if (rows.length === 0) return [];
+    if (rows.length > 0) {
+      return rows.map((r: Record<string, unknown>) => ({
+        nhlId: String(r.playerId),
+        name: String(r.skaterFullName || r.lastName || ""),
+        position: normalizePosition(String(r.positionCode || "")),
+        // teamAbbrevs can be "TOR/MTL" for traded players — take the last one (current team)
+        teamAbbr: String(r.teamAbbrevs || "").split(/[,/]/).pop()?.trim() || "",
+        goals: Number(r.goals || 0),
+        assists: Number(r.assists || 0),
+      }));
+    }
+  } catch {}
 
-    return rows.map((r: Record<string, unknown>) => ({
-      nhlId: String(r.playerId),
-      name: String(r.skaterFullName || r.lastName || ""),
-      position: normalizePosition(String(r.positionCode || "")),
-      teamAbbr: String(r.teamAbbrevs || ""),
-      goals: Number(r.goals || 0),
-      assists: Number(r.assists || 0),
-    }));
-  } catch {
-    return [];
+  // Fallback: per-team club stats from the web API
+  const teams = getFallbackTeams();
+  const results: PlayerStatsResult[] = [];
+  for (const team of teams) {
+    try {
+      const data = await fetchJSON(`${NHL_API}/club-stats/${team.abbr}/${SEASON}/3`);
+      for (const p of (data.skaters || []) as Record<string, unknown>[]) {
+        results.push({
+          nhlId: String(p.playerId),
+          name: `${(p.firstName as Record<string,string>)?.default || ""} ${(p.lastName as Record<string,string>)?.default || ""}`.trim(),
+          position: normalizePosition(String(p.positionCode || "")),
+          teamAbbr: team.abbr,
+          goals: Number(p.goals || 0),
+          assists: Number(p.assists || 0),
+        });
+      }
+    } catch {}
   }
+  return results;
 }
 
 export async function getTeamRoster(teamAbbr: string): Promise<NHLPlayer[]> {

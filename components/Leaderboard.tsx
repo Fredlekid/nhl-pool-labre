@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState, useCallback } from "react";
+import { Fragment, useEffect, useState, useCallback } from "react";
 import { teamLogoUrl } from "@/lib/nhl-logos";
 
 interface TeamScore {
@@ -36,12 +36,31 @@ interface Team {
   eliminated: boolean;
 }
 
+function TeamLogo({ abbr, size = 28 }: { abbr: string; size?: number }) {
+  const pad = Math.round(size * 0.2);
+  const outer = size + pad * 2;
+  return (
+    <span
+      className="inline-flex items-center justify-center rounded-full bg-slate-800 shrink-0"
+      style={{ width: outer, height: outer }}
+    >
+      <Image
+        src={teamLogoUrl(abbr)}
+        alt={abbr}
+        width={size}
+        height={size}
+        className="object-contain"
+        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+      />
+    </span>
+  );
+}
+
 export default function Leaderboard() {
   const [scores, setScores] = useState<TeamScore[]>([]);
   const [players, setPlayers] = useState<Player[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
@@ -53,7 +72,6 @@ export default function Leaderboard() {
     setScores(await scoresRes.json());
     setPlayers(await playersRes.json());
     setTeams(await teamsRes.json());
-    setLastUpdated(new Date());
     setLoading(false);
   }, []);
 
@@ -86,175 +104,100 @@ export default function Leaderboard() {
   }
 
   return (
-    <div>
-      {/* Standings table */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-8">
-        {lastUpdated && (
-          <div className="px-5 py-3 border-b border-slate-100 flex justify-end">
-            <span className="text-xs text-slate-400">Updated {lastUpdated.toLocaleTimeString()}</span>
-          </div>
-        )}
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-slate-100 text-slate-500 text-xs uppercase tracking-wide font-semibold">
-              <th className="px-5 py-3 text-left w-10">#</th>
-              <th className="px-5 py-3 text-left">Participant</th>
-              <th className="px-4 py-3 text-right hidden sm:table-cell">Players</th>
-              <th className="px-4 py-3 text-right hidden sm:table-cell">Teams</th>
-              <th className="px-5 py-3 text-right text-slate-700">Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {scores.map((score, i) => (
-              <tr
-                key={score.id}
-                className="border-t border-slate-200 hover:bg-blue-50 cursor-pointer transition-colors"
-                onClick={() => setOpenId(openId === score.id ? null : score.id)}
-              >
-                <td className="px-5 py-4 font-bold w-10 text-base">
-                  {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : <span className="text-slate-500 font-semibold text-sm">{i + 1}</span>}
-                </td>
-                <td className="px-5 py-4 font-bold text-slate-900">{score.displayName}</td>
-                <td className="px-4 py-4 text-right text-slate-600 font-medium hidden sm:table-cell">{score.playerPoints}</td>
-                <td className="px-4 py-4 text-right text-slate-600 font-medium hidden sm:table-cell">{score.teamPoints}</td>
-                <td className="px-5 py-4 text-right">
-                  <span className="font-black text-blue-700 text-lg">{score.totalPoints}</span>
-                  <span className="text-slate-400 text-xs ml-1">pts</span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Expandable detail cards */}
-      <div className="space-y-3">
-        {scores.map((score, i) => (
-          <PicksCard
-            key={score.id}
-            score={score}
-            rank={i + 1}
-            playerMap={playerMap}
-            teamMap={teamMap}
-            open={openId === score.id}
-            onToggle={() => setOpenId(openId === score.id ? null : score.id)}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function TeamLogo({ abbr, size = 28 }: { abbr: string; size?: number }) {
-  const pad = Math.round(size * 0.2);
-  const outer = size + pad * 2;
-  return (
-    <span
-      className="inline-flex items-center justify-center rounded-full bg-slate-800 shrink-0"
-      style={{ width: outer, height: outer }}
-    >
-      <Image
-        src={teamLogoUrl(abbr)}
-        alt={abbr}
-        width={size}
-        height={size}
-        className="object-contain"
-        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-      />
-    </span>
-  );
-}
-
-function PicksCard({
-  score, rank, playerMap, teamMap, open, onToggle,
-}: {
-  score: TeamScore;
-  rank: number;
-  playerMap: Map<string, Player>;
-  teamMap: Map<string, Team>;
-  open: boolean;
-  onToggle: () => void;
-}) {
-  const eastStats = teamMap.get(score.picks.eastTeam);
-  const westStats = teamMap.get(score.picks.westTeam);
-
-  return (
-    <div className={`bg-white rounded-2xl border shadow-sm overflow-hidden transition-all ${open ? "border-blue-200 shadow-blue-50" : "border-slate-200"}`}>
-      <button
-        className="w-full px-5 py-4 flex items-center justify-between hover:bg-slate-50 transition-colors"
-        onClick={onToggle}
-      >
-        <div className="flex items-center gap-3">
-          <span className="text-slate-400 font-medium text-sm w-6 text-left">
-            {rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : `#${rank}`}
-          </span>
-          <span className="font-bold text-slate-800">{score.displayName}</span>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="text-slate-500 text-xs hidden sm:block font-medium">
-            {score.playerPoints} player · {score.teamPoints} team
-          </span>
-          <span className="font-black text-blue-700 text-lg">{score.totalPoints} <span className="font-normal text-xs text-slate-400">pts</span></span>
-          <svg
-            className={`w-4 h-4 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`}
-            fill="none" stroke="currentColor" viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
-        </div>
-      </button>
-
-      {open && (
-        <div className="border-t border-slate-100 divide-y divide-slate-100">
-          {/* Teams */}
-          <div className="px-5 py-4">
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">Conference Teams</p>
-            <div className="grid grid-cols-2 gap-3">
-              {[
-                { abbr: score.picks.eastTeam, stats: eastStats, label: "Eastern" },
-                { abbr: score.picks.westTeam, stats: westStats, label: "Western" },
-              ].map(({ abbr, stats, label }) => {
-                const pts = stats ? stats.wins + stats.seriesWins : 0;
-                return (
-                  <div
-                    key={abbr}
-                    className={`rounded-xl p-3 flex items-center gap-3 border ${
-                      stats?.eliminated
-                        ? "bg-red-50 border-red-200"
-                        : "bg-slate-50 border-slate-200"
-                    }`}
-                  >
-                    <TeamLogo abbr={abbr} size={32} />
-                    <div className="min-w-0">
-                      <p className="text-xs text-slate-500 font-medium">{label}</p>
-                      <p className={`font-bold text-sm truncate ${stats?.eliminated ? "text-red-600" : "text-slate-900"}`}>
-                        {stats?.name || abbr}
-                        {stats?.eliminated && <span className="ml-1 text-xs font-normal text-red-500">· out</span>}
-                      </p>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        {stats?.wins ?? 0}W · {stats?.seriesWins ?? 0} series ·{" "}
-                        <span className="font-bold text-blue-700">{pts} pts</span>
-                      </p>
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="bg-slate-100 text-slate-500 text-xs uppercase tracking-wide font-semibold">
+            <th className="px-5 py-3 text-left w-10">#</th>
+            <th className="px-5 py-3 text-left">Participant</th>
+            <th className="px-4 py-3 text-right hidden sm:table-cell">Players</th>
+            <th className="px-4 py-3 text-right hidden sm:table-cell">Teams</th>
+            <th className="px-5 py-3 text-right text-slate-700">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {scores.map((score, i) => {
+            const isOpen = openId === score.id;
+            return (
+              <Fragment key={score.id}>
+                <tr
+                  className={`border-t border-slate-200 cursor-pointer transition-colors ${isOpen ? "bg-blue-50" : "hover:bg-blue-50"}`}
+                  onClick={() => setOpenId(isOpen ? null : score.id)}
+                >
+                  <td className="px-5 py-4 font-bold w-10 text-base">
+                    {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : <span className="text-slate-500 font-semibold text-sm">{i + 1}</span>}
+                  </td>
+                  <td className="px-5 py-4 font-bold text-slate-900">
+                    <div className="flex items-center gap-2">
+                      {score.displayName}
+                      <svg className={`w-3.5 h-3.5 text-slate-400 transition-transform shrink-0 ${isOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+                  </td>
+                  <td className="px-4 py-4 text-right text-slate-600 font-medium hidden sm:table-cell">{score.playerPoints}</td>
+                  <td className="px-4 py-4 text-right text-slate-600 font-medium hidden sm:table-cell">{score.teamPoints}</td>
+                  <td className="px-5 py-4 text-right">
+                    <span className="font-black text-blue-700 text-lg">{score.totalPoints}</span>
+                    <span className="text-slate-400 text-xs ml-1">pts</span>
+                  </td>
+                </tr>
 
-          {/* Forwards */}
-          <PlayerGroup label="Forwards" ids={score.picks.forwards} playerMap={playerMap} teamMap={teamMap} />
+                {isOpen && (
+                  <tr className="border-t border-blue-100">
+                    <td colSpan={5} className="px-0 py-0">
+                      <div className="bg-slate-50 divide-y divide-slate-100">
 
-          {/* Defensemen */}
-          <PlayerGroup label="Defensemen" ids={score.picks.defensemen} playerMap={playerMap} teamMap={teamMap} />
+                        {/* Conference teams */}
+                        <div className="px-5 py-4">
+                          <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">Conference Teams</p>
+                          <div className="grid grid-cols-2 gap-3">
+                            {[
+                              { abbr: score.picks.eastTeam, label: "Eastern" },
+                              { abbr: score.picks.westTeam, label: "Western" },
+                            ].map(({ abbr, label }) => {
+                              const stats = teamMap.get(abbr);
+                              const pts = stats ? stats.wins + stats.seriesWins : 0;
+                              return (
+                                <div key={abbr} className={`rounded-xl p-3 flex items-center gap-3 border ${stats?.eliminated ? "bg-red-50 border-red-200" : "bg-white border-slate-200"}`}>
+                                  <TeamLogo abbr={abbr} size={32} />
+                                  <div className="min-w-0">
+                                    <p className="text-xs text-slate-500 font-medium">{label}</p>
+                                    <p className={`font-bold text-sm truncate ${stats?.eliminated ? "text-red-600" : "text-slate-900"}`}>
+                                      {stats?.name || abbr}
+                                      {stats?.eliminated && <span className="ml-1 text-xs font-normal text-red-500">· out</span>}
+                                    </p>
+                                    <p className="text-xs text-slate-500 mt-0.5">
+                                      {stats?.wins ?? 0}W · {stats?.seriesWins ?? 0} series ·{" "}
+                                      <span className="font-bold text-blue-700">{pts} pts</span>
+                                    </p>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
 
-          {/* Total */}
-          <div className="px-5 py-3 bg-slate-50 flex justify-between items-center">
-            <span className="text-xs text-slate-400 uppercase tracking-wide font-semibold">Total Points</span>
-            <span className="font-black text-blue-700 text-xl">{score.totalPoints}</span>
-          </div>
-        </div>
-      )}
+                        {/* Forwards */}
+                        <PlayerGroup label="Forwards" ids={score.picks.forwards} playerMap={playerMap} teamMap={teamMap} />
+
+                        {/* Defensemen */}
+                        <PlayerGroup label="Defensemen" ids={score.picks.defensemen} playerMap={playerMap} teamMap={teamMap} />
+
+                        {/* Total */}
+                        <div className="px-5 py-3 bg-white flex justify-between items-center">
+                          <span className="text-xs text-slate-400 uppercase tracking-wide font-semibold">Total Points</span>
+                          <span className="font-black text-blue-700 text-xl">{score.totalPoints}</span>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -286,20 +229,14 @@ function PlayerGroup({ label, ids, playerMap, teamMap }: {
           return (
             <div
               key={id}
-              className={`flex items-center justify-between rounded-lg px-3 py-2 text-sm ${
-                eliminated ? "bg-red-50 border border-red-200" : "bg-slate-50"
-              }`}
+              className={`flex items-center justify-between rounded-lg px-3 py-2 text-sm ${eliminated ? "bg-red-50 border border-red-200" : "bg-white border border-slate-200"}`}
             >
               <div className="flex items-center gap-2 min-w-0">
-                {p?.teamAbbr && (
-                  <TeamLogo abbr={p.teamAbbr} size={20} />
-                )}
+                {p?.teamAbbr && <TeamLogo abbr={p.teamAbbr} size={20} />}
                 <span className={`font-semibold truncate ${eliminated ? "text-red-700" : "text-slate-900"}`}>
                   {p?.name || id}
                 </span>
-                {eliminated && (
-                  <span className="text-xs text-red-500 shrink-0 font-medium">· eliminated</span>
-                )}
+                {eliminated && <span className="text-xs text-red-500 shrink-0 font-medium">· eliminated</span>}
               </div>
               <div className="flex items-center gap-3 shrink-0 ml-2">
                 <span className="text-xs text-slate-500 tabular-nums hidden sm:block font-medium">
