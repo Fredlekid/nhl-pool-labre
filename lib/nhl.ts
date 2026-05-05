@@ -115,38 +115,17 @@ export async function getPlayoffTeamStats(): Promise<PlayoffTeamResult[]> {
 }
 
 export async function getPlayoffPlayerStats(): Promise<PlayerStatsResult[]> {
-  // Try aggregated stats API first
-  try {
-    const url =
-      `${NHL_STATS_API}/skater/summary?isAggregate=true&isGame=false` +
-      `&sort=[{"property":"points","direction":"DESC"}]` +
-      `&start=0&limit=1000` +
-      `&cayenneExp=gameTypeId=3 and seasonId<=${SEASON} and seasonId>=${SEASON}`;
-
-    const data = await fetchJSON(url);
-    const rows = data.data || [];
-    if (rows.length > 0) {
-      return rows.map((r: Record<string, unknown>) => ({
-        nhlId: String(r.playerId),
-        name: String(r.skaterFullName || r.lastName || ""),
-        position: normalizePosition(String(r.positionCode || "")),
-        // teamAbbrevs can be "TOR/MTL" for traded players — take the last one (current team)
-        teamAbbr: String(r.teamAbbrevs || "").split(/[,/]/).pop()?.trim() || "",
-        goals: Number(r.goals || 0),
-        assists: Number(r.assists || 0),
-      }));
-    }
-  } catch {}
-
-  // Fallback: per-team club stats from the web API
+  // Build a complete map from per-team club stats (covers all players including low scorers)
   const teams = getFallbackTeams();
-  const results: PlayerStatsResult[] = [];
+  const merged = new Map<string, PlayerStatsResult>();
+
   for (const team of teams) {
     try {
       const data = await fetchJSON(`${NHL_API}/club-stats/${team.abbr}/${SEASON}/3`);
       for (const p of (data.skaters || []) as Record<string, unknown>[]) {
-        results.push({
-          nhlId: String(p.playerId),
+        const id = String(p.playerId);
+        merged.set(id, {
+          nhlId: id,
           name: `${(p.firstName as Record<string,string>)?.default || ""} ${(p.lastName as Record<string,string>)?.default || ""}`.trim(),
           position: normalizePosition(String(p.positionCode || "")),
           teamAbbr: team.abbr,
@@ -156,7 +135,33 @@ export async function getPlayoffPlayerStats(): Promise<PlayerStatsResult[]> {
       }
     } catch {}
   }
-  return results;
+
+  // Override with aggregated API when available — it has combined stats for traded players
+  try {
+    const url =
+      `${NHL_STATS_API}/skater/summary?isAggregate=true&isGame=false` +
+      `&sort=[{"property":"points","direction":"DESC"}]` +
+      `&start=0&limit=1000` +
+      `&cayenneExp=gameTypeId=3 and seasonId<=${SEASON} and seasonId>=${SEASON}`;
+
+    const data = await fetchJSON(url);
+    const rows = data.data || [];
+    for (const r of rows as Record<string, unknown>[]) {
+      const id = String(r.playerId);
+      const existing = merged.get(id);
+      merged.set(id, {
+        nhlId: id,
+        name: String(r.skaterFullName || r.lastName || existing?.name || ""),
+        position: normalizePosition(String(r.positionCode || existing?.position || "")),
+        // teamAbbrevs can be "TOR/MTL" for traded players — take the last one (current team)
+        teamAbbr: String(r.teamAbbrevs || "").split(/[,/]/).pop()?.trim() || existing?.teamAbbr || "",
+        goals: Number(r.goals || 0),
+        assists: Number(r.assists || 0),
+      });
+    }
+  } catch {}
+
+  return [...merged.values()];
 }
 
 export async function getTeamRoster(teamAbbr: string): Promise<NHLPlayer[]> {
